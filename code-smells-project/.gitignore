@@ -1,0 +1,4 @@
+.refactor-arch/
+__pycache__/
+*.pyc
+loja.db
