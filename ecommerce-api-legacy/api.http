@@ -1,4 +1,8 @@
 @baseUrl = http://localhost:3000
+# Credencial administrativa. Definir ADMIN_TOKEN no ambiente do servidor com o
+# mesmo valor. Enquanto a variável estiver vazia no servidor, os dois endpoints
+# administrativos recusam toda requisição com 401.
+@adminToken = troque-por-sua-credencial
 
 ### Checkout - sucesso
 POST {{baseUrl}}/api/checkout
@@ -9,6 +13,30 @@ Content-Type: application/json
   "eml": "gui@fullcycle.com.br",
   "pwd": "senhaforte",
   "c_id": 2,
+  "card": "4111222233334444"
+}
+
+### Checkout - usuario ja cadastrado, senha correta
+POST {{baseUrl}}/api/checkout
+Content-Type: application/json
+
+{
+  "usr": "Leonan",
+  "eml": "leonan@fullcycle.com.br",
+  "pwd": "123",
+  "c_id": 1,
+  "card": "4111222233334444"
+}
+
+### Checkout - usuario ja cadastrado, senha errada (401)
+POST {{baseUrl}}/api/checkout
+Content-Type: application/json
+
+{
+  "usr": "Leonan",
+  "eml": "leonan@fullcycle.com.br",
+  "pwd": "nao-e-a-senha",
+  "c_id": 1,
   "card": "4111222233334444"
 }
 
@@ -24,8 +52,22 @@ Content-Type: application/json
   "card": "5111222233334444"
 }
 
+### Checkout - entrada invalida (c_id precisa ser inteiro)
+POST {{baseUrl}}/api/checkout
+Content-Type: application/json
+
+{
+  "usr": "Ana",
+  "eml": "ana@teste.com",
+  "pwd": "segredo",
+  "c_id": "2",
+  "card": "4111222233334444"
+}
+
 ### Relatório financeiro administrativo
 GET {{baseUrl}}/api/admin/financial-report
+X-Admin-Token: {{adminToken}}
 
 ### Deletar usuário
 DELETE {{baseUrl}}/api/users/1
+X-Admin-Token: {{adminToken}}

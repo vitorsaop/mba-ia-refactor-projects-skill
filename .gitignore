@@ -1,6 +1,10 @@
 .env
 node_modules/
 
+# Diretorio de trabalho da skill refactor-arch: capturas, plano, registro de
+# remediacao e artefatos de validacao da Fase 3. Nao faz parte do codigo entregue.
+.refactor-arch/
+
 # Python
 __pycache__/
 *.pyc
