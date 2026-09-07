@@ -9,7 +9,7 @@ está em [ENUNCIADO.md](ENUNCIADO.md).
 
 | Projeto | Stack | Findings | Estrutura antes | Estrutura depois |
 |---|---|---|---|---|
-| code-smells-project | Python + Flask 3.1.1 | 29 mais 15 da segunda execução | 4 arquivos, 780 linhas | 28 arquivos, 954 linhas |
+| code-smells-project | Python + Flask 3.1.1 | 15 na segunda execução | 4 arquivos, 780 linhas | 28 arquivos, 954 linhas |
 | ecommerce-api-legacy | Node.js + Express 4.18.2 | 24 | 3 arquivos, 180 linhas | 22 arquivos, 969 linhas |
 | task-manager-api | Python + Flask 3.0.0 | 53 mais 3 do adendo | 15 arquivos, 1158 linhas | 27 arquivos, 1614 linhas |
 
@@ -297,6 +297,13 @@ confirmadas por leitura do commit 6d1ce62 como pré-existentes ao código
 original. Estão no relatório em seção separada, depois do rodapé da Fase 2,
 para que o total da Fase 2 continue sendo o que a Fase 2 produziu.
 
+A skill foi executada duas vezes no projeto 1. A primeira emitiu 29
+constatações e teve as que alteram o contrato recusadas no portão. A segunda
+rodou sobre o estado já refatorado, emitiu 15 e teve o portão respondido `a`.
+O arquivo `reports/audit-project-1.md` guarda a saída da Fase 2 da segunda
+execução, que é a auditoria válida sobre o código entregue. A da primeira
+permanece no histórico, em `git show 65d6426:reports/audit-project-1.md`.
+
 Relatórios completos em [reports/audit-project-1.md](reports/audit-project-1.md),
 [reports/audit-project-2.md](reports/audit-project-2.md) e
 [reports/audit-project-3.md](reports/audit-project-3.md).
@@ -310,11 +317,12 @@ antes                        depois
 app.py                       app.py                    (carregador)
 controllers.py               src/app.py                (composition root)
 models.py                    src/config/               settings, database, logging_config
-database.py                  src/models/               produto, usuario, pedido, relatorio, admin
-                             src/controllers/          produto, usuario, pedido, relatorio, admin, home
-                             src/views/routes.py       19 rotas
-                             src/middlewares/          error_handler
-4 arquivos, 780 linhas       24 arquivos, 809 linhas
+database.py                  src/models/               produto, usuario, pedido, relatorio, admin, schema
+                             src/controllers/          produto, usuario, pedido, relatorio, admin, home,
+                                                       envelope, validators
+                             src/views/routes.py       18 rotas
+                             src/middlewares/          error_handler, admin_guard
+4 arquivos, 780 linhas       28 arquivos, 954 linhas
 ```
 
 **ecommerce-api-legacy**
@@ -383,7 +391,7 @@ tabela `contém / não contém` e movido para a camada correspondente.
 | Error handling centralizado | `error_handler.py` | `errorHandler.js` | `error_handler.py` |
 | Entry point claro | `app.py` | `src/app.js` | `app.py` |
 | Aplicação inicia sem erros | Sim | Sim | Sim |
-| Endpoints originais respondem | 19 rotas | 3 rotas | 22 rotas |
+| Endpoints originais respondem | 18 rotas | 3 rotas | 22 rotas |
 
 ### Logs de execução após a refatoração
 
