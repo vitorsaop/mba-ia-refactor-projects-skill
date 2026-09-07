@@ -1,7 +1,6 @@
 """Orquestração das requisições de usuário."""
 import logging
 
-from flask import request
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.config import settings
@@ -26,7 +25,7 @@ def get_user(user_id):
 
 
 def create_user():
-    data = request.get_json()
+    data = validators.object_body()
     if not data:
         return envelope.fail("Dados inválidos", 400)
 
@@ -72,7 +71,7 @@ def update_user(user_id):
     if user is None:
         return envelope.fail("Usuário não encontrado", 404)
 
-    data = request.get_json()
+    data = validators.object_body()
     if not data:
         return envelope.fail("Dados inválidos", 400)
 
@@ -138,7 +137,7 @@ def get_user_tasks(user_id):
 
 
 def login():
-    data = request.get_json()
+    data = validators.object_body()
     if not data:
         return envelope.fail("Dados inválidos", 400)
 

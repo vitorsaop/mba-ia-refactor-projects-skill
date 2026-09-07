@@ -6,9 +6,23 @@ módulo de apoio já definia e ninguém chamava.
 import re
 from datetime import datetime
 
+from flask import request
+
 from src.config import settings
 
 _EMAIL = re.compile(settings.EMAIL_PATTERN)
+
+
+def object_body():
+    """Corpo da requisição quando for objeto JSON, `None` caso contrário.
+
+    F56: `if not data` aprova qualquer valor verdadeiro, então um corpo JSON
+    válido que não seja objeto, como `"abc"` ou `[1,2]`, passava a guarda e
+    quebrava no `data.get` seguinte com 500, ou era aceito com 200 sem
+    alterar campo algum.
+    """
+    data = request.get_json()
+    return data if isinstance(data, dict) else None
 
 
 def is_valid_email(email):

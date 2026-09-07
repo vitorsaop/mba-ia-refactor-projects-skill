@@ -43,8 +43,11 @@ user_bp.add_url_rule("/users", "create_user",
                      user_controller.create_user, methods=["POST"])
 user_bp.add_url_rule("/users/<int:user_id>", "get_user",
                      user_controller.get_user, methods=["GET"])
+# F54: a rota permitia trocar a senha de qualquer conta sem verificacao de
+# identidade. O projeto nao tem sessao nem token verificavel, entao a guarda
+# aplicada e a mesma dos DELETE, T16 opcao B.
 user_bp.add_url_rule("/users/<int:user_id>", "update_user",
-                     user_controller.update_user, methods=["PUT"])
+                     require_admin(user_controller.update_user), methods=["PUT"])
 user_bp.add_url_rule("/users/<int:user_id>", "delete_user",
                      require_admin(user_controller.delete_user), methods=["DELETE"])
 user_bp.add_url_rule("/users/<int:user_id>/tasks", "get_user_tasks",

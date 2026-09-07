@@ -33,7 +33,7 @@ def get_task(task_id):
 
 
 def create_task():
-    data = request.get_json()
+    data = validators.object_body()
     if not data:
         return envelope.fail("Dados inválidos", 400)
 
@@ -93,7 +93,7 @@ def update_task(task_id):
     if task is None:
         return envelope.fail("Task não encontrada", 404)
 
-    data = request.get_json()
+    data = validators.object_body()
     if not data:
         return envelope.fail("Dados inválidos", 400)
 

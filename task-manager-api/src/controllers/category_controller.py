@@ -1,7 +1,6 @@
 """Orquestração das requisições de categoria."""
 import logging
 
-from flask import request
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.config import settings
@@ -16,7 +15,7 @@ def list_categories():
 
 
 def create_category():
-    data = request.get_json()
+    data = validators.object_body()
     if not data:
         return envelope.fail("Dados inválidos", 400)
 
@@ -44,7 +43,9 @@ def update_category(category_id):
     if category is None:
         return envelope.fail("Categoria não encontrada", 404)
 
-    data = request.get_json()
+    data = validators.object_body()
+    if not data:
+        return envelope.fail("Dados inválidos", 400)
 
     if "name" in data:
         # F31: a rota de atualização não validava nada e aceitava nome vazio,

@@ -11,7 +11,7 @@ está em [ENUNCIADO.md](ENUNCIADO.md).
 |---|---|---|---|---|
 | code-smells-project | Python + Flask 3.1.1 | 29 | 4 arquivos, 780 linhas | 24 arquivos, 809 linhas |
 | ecommerce-api-legacy | Node.js + Express 4.18.2 | 24 | 3 arquivos, 180 linhas | 22 arquivos, 969 linhas |
-| task-manager-api | Python + Flask 3.0.0 | 53 | 15 arquivos, 1158 linhas | 27 arquivos, 1597 linhas |
+| task-manager-api | Python + Flask 3.0.0 | 53 mais 3 do adendo | 15 arquivos, 1158 linhas | 27 arquivos, 1614 linhas |
 
 ---
 
@@ -287,7 +287,14 @@ passou a localizar o artefato por busca, exigindo exatamente uma ocorrência.
 | code-smells-project | 10 | 6 | 7 | 6 | 29 |
 | ecommerce-api-legacy | 5 | 8 | 7 | 4 | 24 |
 | task-manager-api | 9 | 11 | 20 | 13 | 53 |
-| Soma | 24 | 25 | 34 | 23 | 106 |
+| task-manager-api, adendo da re-auditoria | 0 | 1 | 2 | 0 | 3 |
+| Soma | 24 | 26 | 36 | 23 | 109 |
+
+As três constatações do adendo não foram encontradas na Fase 2. Apareceram na
+passagem B da re-auditoria do passo 3.5, já sobre o código refatorado, e foram
+confirmadas por leitura do commit 6d1ce62 como pré-existentes ao código
+original. Estão no relatório em seção separada, depois do rodapé da Fase 2,
+para que o total da Fase 2 continue sendo o que a Fase 2 produziu.
 
 Relatórios completos em [reports/audit-project-1.md](reports/audit-project-1.md),
 [reports/audit-project-2.md](reports/audit-project-2.md) e
@@ -417,6 +424,7 @@ GET /users                 -> 200
 GET /categories            -> 200
 GET /reports/summary       -> 200
 DELETE /tasks/1            -> 401 (sem credencial)
+PUT /users/1               -> 401 (sem credencial)
 ```
 
 ### Estado residual por projeto
@@ -442,13 +450,24 @@ e as que preservam o contrato foram aplicadas.
 contrato. Os dois endpoints administrativos passaram a exigir credencial, e as
 senhas passaram a `pbkdf2-sha256` com sal por usuário.
 
-**Projeto 3.** As 53 constatações foram aplicadas, incluindo as 8 que alteram o
-contrato. A re-auditoria encontrou 9 defeitos introduzidos pela própria
-refatoração, todos corrigidos antes da conclusão. Três constatações
-pré-existentes que a Fase 2 não havia reportado ficaram sem correção porque
-alteram o contrato e não foram autorizadas: troca de senha em
-`PUT /users/<id>` sem verificação de identidade, `PUT /categories/<id>` com
-corpo nulo devolvendo 500, e corpo JSON não-objeto nos handlers de escrita.
+**Projeto 3.** As 53 constatações da Fase 2 foram aplicadas, incluindo as 8 que
+alteram o contrato. A re-auditoria encontrou 9 defeitos introduzidos pela
+própria refatoração, todos corrigidos antes da conclusão, entre eles
+`hmac.compare_digest` sobre texto devolvendo 500 para token com caractere fora
+de ASCII e o corpo do 500 devolvendo a consulta SQL ao cliente.
+
+A re-auditoria encontrou também 3 constatações pré-existentes que a Fase 2 não
+havia reportado. As três alteram o contrato, foram levadas a um portão estreito,
+autorizadas e aplicadas:
+
+| F | Correção | Verificação |
+|---|---|---|
+| F54 | `PUT /users/<id>` passa a exigir credencial administrativa | sem cabeçalho devolve 401, com `X-Admin-Token` válido devolve 200 |
+| F55 | `PUT /categories/<id>` passa a recusar corpo vazio ou nulo | corpo `{}` e corpo `null` passam de 200 e 500 para 400 |
+| F56 | os sete handlers de escrita passam a exigir corpo objeto | `POST /tasks` com `"abc"` e `PUT /users/1` com `[1,2]` passam de 500 e 200 para 400 |
+
+Nenhuma constatação do projeto 3 permanece sem correção. O registro fecha com
+95 linhas, 56 constatações distintas e nenhuma sem destino.
 
 ### Comportamento da skill em stacks diferentes
 

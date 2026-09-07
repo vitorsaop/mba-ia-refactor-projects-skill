@@ -351,3 +351,40 @@ Recommendation: A remoção prevista em F40 encerra esta constatação. Caso a f
 ================================
 Total: 53 findings
 ================================
+
+================================
+ADDENDUM: FINDINGS FROM THE PHASE 3 RE-AUDIT
+================================
+As três constatações abaixo não estão entre as 53 da Fase 2. Foram encontradas na passagem B da re-auditoria do passo 3.5, sobre o código já refatorado, e confirmadas por leitura do commit 6d1ce62 como pré-existentes ao código original, portanto não são regressão introduzida pela refatoração. A numeração segue a do relatório. As três foram autorizadas em portão estreito e aplicadas.
+
+## Summary
+CRITICAL: 0 | HIGH: 1 | MEDIUM: 2 | LOW: 0
+
+## Findings
+
+### [HIGH] Troca de senha sem verificação de identidade (F54, C4) [contract-breaking]
+File: routes/user_routes.py:92-118
+Description: `PUT /users/<id>` altera a senha de qualquer conta sem nenhuma verificação de identidade. Reproduzido por execução: `PUT /users/1` com corpo `{"password":"tomada9999"}` e sem cabeçalho algum devolve 200, e o `POST /login` seguinte com a senha nova devolve 200 com o token do usuário 1. O projeto define `User.is_admin()` e nunca o chama, e o token devolvido pelo login é a concatenação de um prefixo fixo com o identificador, não verificado em endpoint algum.
+Impact: Qualquer cliente com acesso de rede assume permanentemente a conta de qualquer usuário, inclusive a de papel `admin`. A rota de remoção já exigia credencial, portanto a rota de atualização era o caminho mais barato para o mesmo resultado.
+Recommendation: Aplicar a mesma guarda de credencial administrativa usada nos três `DELETE`. Aplicar T16, opção B.
+Contract change: `PUT /users/<id>` passa a devolver 401 com corpo `{"erro": "Não autorizado", "sucesso": false}` para requisição sem o cabeçalho de credencial. Com credencial válida, corpo e status permanecem idênticos.
+
+### [MEDIUM] Atualização de categoria sem guarda de corpo (F55, M3) [contract-breaking]
+File: routes/report_routes.py:190-202
+Description: `update_category` lê o corpo e usa `'name' in data` sem verificar se o corpo existe, enquanto os outros cinco handlers de escrita do projeto verificam. Reproduzido: corpo JSON `null` devolve 500 com `argument of type 'NoneType' is not iterable`, e corpo `{}` devolve 200 e grava, onde os handlers irmãos devolvem 400.
+Impact: A mesma classe de entrada produz três respostas diferentes conforme o endpoint: 400 nos cinco handlers com guarda, 500 e 200 neste. O 500 expõe uma falha interna para entrada que é erro de cliente.
+Recommendation: Acrescentar a guarda de corpo que os cinco handlers irmãos já aplicam. Aplicar T20.
+Contract change: `PUT /categories/<id>` passa a devolver 400 para corpo vazio, hoje aceito com 200, e para corpo nulo, hoje respondido com 500.
+
+### [MEDIUM] Corpo JSON não-objeto nos handlers de escrita (F56, M3) [contract-breaking]
+File: routes/task_routes.py:85-92,156-165
+Locations: routes/report_routes.py:167-175, routes/task_routes.py:85-92,156-165, routes/user_routes.py:42-48,92-101,185-190
+Description: A guarda `if not data` aprova qualquer valor verdadeiro, então um corpo JSON válido que não seja objeto atravessa a verificação. Reproduzido: `POST /tasks` com corpo `"abc"` devolve 500 com `'str' object has no attribute 'get'`, e `PUT /users/1` com corpo `[1,2]` devolve 200 sem alterar campo algum.
+Impact: Erro de cliente produz 5xx em um caminho e sucesso silencioso em outro. O 200 sobre entrada malformada é o pior dos dois, porque o cliente recebe confirmação de uma escrita que não ocorreu.
+Recommendation: Verificar que o corpo é objeto antes de usá-lo, em ponto único consumido pelos seis handlers de escrita. Aplicar T20.
+Contract change: `POST /tasks`, `PUT /tasks/<id>`, `POST /users`, `PUT /users/<id>`, `POST /login`, `POST /categories` e `PUT /categories/<id>` passam a devolver 400 para corpo JSON que não seja objeto, hoje respondido com 500 ou com 200.
+
+================================
+Addendum total: 3 findings
+Relatório completo: 53 findings da Fase 2 mais 3 do adendo = 56
+================================
