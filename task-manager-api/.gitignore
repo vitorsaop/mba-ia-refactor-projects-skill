@@ -1,0 +1,16 @@
+# Artefatos de trabalho da skill refactor-arch
+.refactor-arch/
+
+# Segredos
+.env
+
+# Banco gerado em execução
+instance/
+*.db
+*.sqlite
+
+# Artefatos do Python
+__pycache__/
+*.pyc
+.venv/
+venv/
