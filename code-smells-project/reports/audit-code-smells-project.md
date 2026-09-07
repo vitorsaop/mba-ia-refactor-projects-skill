@@ -3,193 +3,121 @@ ARCHITECTURE AUDIT REPORT
 ================================
 Project: code-smells-project
 Stack:   Python + Flask 3.1.1
-Files:   4 analyzed | ~780 lines of code
+Files:   24 analyzed | ~809 lines of code
 
 ## Summary
-CRITICAL: 10 | HIGH: 6 | MEDIUM: 7 | LOW: 6
+CRITICAL: 6 | HIGH: 2 | MEDIUM: 5 | LOW: 2
 
 ## Findings
 
-### [CRITICAL] Chave secreta embutida no código (C2)
-File: app.py:7
-Description: `app.config["SECRET_KEY"]` recebe o literal `"minha-chave-super-secreta-123"` diretamente no código. O mesmo valor é devolvido pelo endpoint `/health` em controllers.py:289.
-Impact: A chave entra no histórico de versionamento e não pode ser rotacionada sem editar e reimplantar o código.
-Recommendation: Ler de variável de ambiente, com o literal atual como padrão apenas se a variável estiver ausente. Aplicar T2, categoria segredo.
+### [CRITICAL] Senha persistida e comparada em texto puro (F01, C5) [contract-breaking]
+File: src/config/database.py:19-23
+Locations: src/config/database.py:19-23,78-81, src/models/usuario_model.py:24-31, src/models/usuario_model.py:34-40
+Description: O artefato de carga inicial grava `admin123`, `123456` e `senha123` como valor da coluna `senha`. `usuario_model.login` autentica com `SELECT * FROM usuarios WHERE email = ? AND senha = ?`, comparando o texto puro dentro da consulta, e `usuario_model.create` grava o valor recebido sem transformação.
+Impact: Uma cópia do banco entrega credenciais utilizáveis diretamente, sem trabalho de recuperação. A comparação dentro da consulta não é de tempo constante. Confirmado por execução: `POST /admin/query` com `SELECT nome, email, senha FROM usuarios` devolve as três senhas em texto puro.
+Recommendation: Substituir por `hashlib.pbkdf2_hmac` com sal por usuário e comparação com `hmac.compare_digest`, ambos da biblioteca padrão. Aplicar T17.
+Contract change: As senhas gravadas pelo artefato de carga deixam de validar. `POST /login` passa a devolver 401 para as credenciais de exemplo até o banco ser recriado. O formato do valor armazenado muda de texto puro para `pbkdf2_sha256$<iteracoes>$<sal>$<digest>`.
 
-### [CRITICAL] Módulo com múltiplas responsabilidades (C7)
-File: app.py:7-9,11-30,47-78
-Description: O mesmo arquivo concentra configuração (linhas 7-9: SECRET_KEY, DEBUG, CORS), roteamento (linhas 11-30: 16 chamadas a `add_url_rule`) e acesso direto a banco com regra administrativa (linhas 47-78: `reset_database` e `executar_query` executam SQL diretamente no handler de rota).
-Impact: Uma mudança em qualquer uma das três responsabilidades exige tocar no mesmo arquivo, e nenhuma pode ser testada isoladamente.
-Recommendation: Separar em `config/`, `routes/` e mover a lógica administrativa para controller e model próprios. Aplicar T3, T15.
+### [CRITICAL] Operação destrutiva sem autenticação (F02, C4) [contract-breaking]
+File: src/controllers/admin_controller.py:10-13
+Locations: src/controllers/admin_controller.py:10-13, src/models/admin_model.py:4-10, src/views/routes.py:40
+Description: `POST /admin/reset-db` executa `DELETE FROM` nas quatro tabelas do projeto sem nenhuma verificação de identidade ou permissão no caminho de execução. Confirmado por execução: a requisição sem cabeçalho algum devolve 200 e apaga os dados.
+Impact: Qualquer cliente com acesso de rede remove todos os produtos, usuários, pedidos e itens de pedido em uma requisição.
+Recommendation: Proteger o endpoint com verificação de credencial administrativa em middleware, preservando a função. Aplicar T16, opção B.
+Contract change: `POST /admin/reset-db` passa a devolver 401 com corpo `{"erro": "Não autorizado"}` para requisição sem o cabeçalho de credencial. Com credencial válida, corpo e status permanecem idênticos.
 
-### [CRITICAL] Modo de depuração ativo (C8)
-File: app.py:8,88
-Description: `app.config["DEBUG"] = True` (linha 8) e `app.run(..., debug=True)` (linha 88) ativam o modo de depuração sem condicionamento a variável de ambiente.
-Impact: O console interativo de execução do Werkzeug fica acessível e o rastreamento completo de exceção é exposto ao cliente em qualquer erro não tratado.
-Recommendation: Condicionar `debug` a uma variável de ambiente (`DEBUG=false` como padrão). Aplicar T2.
+### [CRITICAL] Endpoint que executa comando SQL arbitrário (F03, C3) [contract-breaking]
+File: src/controllers/admin_controller.py:16-25
+Locations: src/controllers/admin_controller.py:16-25, src/models/admin_model.py:13-19, src/views/routes.py:41
+Description: `POST /admin/query` lê a chave `sql` do corpo da requisição e a entrega a `conn.execute` sem validação, sem lista de comandos permitidos e sem autenticação. Confirmado por execução: o corpo `{"sql":"SELECT nome, email, senha FROM usuarios LIMIT 2"}` devolve 200 com as credenciais dos usuários.
+Impact: Concede ao cliente anônimo a capacidade inteira da conta de banco: ler qualquer tabela, alterar qualquer registro e remover qualquer dado. Nenhuma validação de rota mitiga, porque o comando é o próprio dado de entrada.
+Recommendation: Remover a rota. Proteger por token não elimina a capacidade de executar comando arbitrário, apenas restringe quem a exerce. Aplicar T16, opção A.
+Contract change: `POST /admin/query` deixa de existir e passa a devolver o código que o framework usa para caminho não registrado.
 
-### [CRITICAL] Operação destrutiva sem autenticação (C4) [contract-breaking]
-File: app.py:47-57
-Description: `POST /admin/reset-db` executa `DELETE FROM` nas quatro tabelas (itens_pedido, pedidos, produtos, usuarios) sem qualquer verificação de identidade ou permissão no caminho de execução.
-Impact: Qualquer cliente com acesso de rede ao endpoint apaga todos os dados da aplicação.
-Recommendation: Exigir autenticação e autorização de administrador antes de executar a limpeza, ou remover o endpoint do código de produção. Aplicar T16.
-Contract change: `POST /admin/reset-db` passa a exigir credencial de administrador; sem ela, devolve 401/403 em vez de 200.
+### [CRITICAL] Chave secreta e sinalizador de depuração na resposta de /health (F04, C6) [contract-breaking]
+File: src/controllers/relatorio_controller.py:11-25
+Description: O corpo devolvido por `GET /health` inclui as chaves `debug` com o valor fixo `True` e `secret_key` com o literal `minha-chave-super-secreta-123`. O valor de `debug` não reflete a configuração em execução, que hoje é falso por padrão.
+Impact: Qualquer cliente sem autenticação obtém a chave de configuração da aplicação. O endpoint de verificação de saúde é o menos protegido de um projeto, e costuma ser exposto a sondagem externa.
+Recommendation: Remover as chaves `debug` e `secret_key` do corpo. Aplicar T18.
+Contract change: `GET /health` deixa de devolver as chaves `debug` e `secret_key`. As demais chaves permanecem inalteradas.
 
-### [CRITICAL] Endpoint que executa comando SQL arbitrário (C3) [contract-breaking]
-File: app.py:59-78
-Description: `POST /admin/query` recebe a chave `sql` do corpo da requisição e a repassa diretamente para `cursor.execute(query)`, sem qualquer filtro.
-Impact: Concede a qualquer cliente a capacidade total da conta de banco: leitura, alteração e remoção de qualquer tabela.
-Recommendation: Remover o endpoint da aplicação exposta publicamente. Aplicar T16.
-Contract change: `POST /admin/query` deixa de existir.
+### [CRITICAL] Chave secreta embutida no código (F05, C2)
+File: src/controllers/relatorio_controller.py:24
+Description: O literal `minha-chave-super-secreta-123` está escrito no código. O módulo de configuração já lê `SECRET_KEY` do ambiente em src/config/settings.py:13, portanto esta é a única ocorrência remanescente do literal no projeto, confirmada por varredura no escopo de código-fonte.
+Impact: O literal está no histórico de versionamento e não pode ser rotacionado sem alterar o código. É o caso de correção parcial que a varredura de resíduo existe para detectar: a atribuição foi corrigida e a cópia na resposta permaneceu.
+Recommendation: Remover o literal junto com a chave da resposta, conforme F04. Aplicar T2, categoria B, com a varredura de resíduo.
 
-### [CRITICAL] Chave secreta e modo debug na resposta de /health (C6) [contract-breaking]
-File: controllers.py:285-289
-Description: O corpo devolvido por `GET /health` inclui as chaves `debug` (linha 288) e `secret_key` (linha 289) com valores reais de configuração da aplicação.
-Impact: Qualquer cliente com acesso ao endpoint de health check obtém a chave de configuração e o estado do modo debug sem autenticação.
-Recommendation: Remover as chaves `debug` e `secret_key` do corpo de resposta. Aplicar T18.
-Contract change: `GET /health` deixa de devolver as chaves `debug` e `secret_key`. As demais chaves (`status`, `database`, `counts`, `versao`, `ambiente`, `db_path`) permanecem inalteradas.
-
-### [CRITICAL] Senha em texto puro nos dados de seed (C5) [contract-breaking]
-File: database.py:75-83
-Description: Os três usuários de exemplo são inseridos com senha literal em texto puro (`admin123`, `123456`, `senha123`) na coluna `senha`.
-Impact: Qualquer leitura da tabela `usuarios`, incluindo pelos próprios endpoints da API, expõe a senha original sem necessidade de quebrar hash algum.
-Recommendation: Persistir hash da senha com sal, gerado a partir do mesmo valor de seed. Aplicar T17.
-Contract change: O valor persistido na coluna `senha` deixa de ser igual ao texto original; comparações futuras exigem verificação de hash em vez de igualdade direta.
-
-### [CRITICAL] SQL Injection por concatenação (C1)
-File: models.py:28,47-50,57-61,68,92,109-111,126-129,140,148-151,155,157-161,163-166,174,188,192,220,224,279-297
-Description: Praticamente toda consulta do módulo é montada por concatenação de string com valor vindo da requisição, incluindo `get_produto_por_id` (28), `criar_produto` (47-50), `atualizar_produto` (57-61), `deletar_produto` (68), `get_usuario_por_id` (92), `login_usuario` (109-111, email e senha do corpo da requisição diretamente na cláusula WHERE), `criar_usuario` (126-129), `criar_pedido` (140,148-151,155,157-161,163-166), `get_pedidos_usuario` (174,188,192), `get_todos_pedidos` (220,224), `atualizar_status_pedido` (279-281) e `buscar_produtos` (289-297, filtro montado por concatenação incremental).
-Impact: Um cliente pode alterar a estrutura de qualquer uma dessas consultas e ler, alterar ou remover registros fora do escopo do endpoint. Em `login_usuario`, a autenticação pode ser contornada com uma condição sempre verdadeira.
-Recommendation: Substituir todas as ocorrências por consulta parametrizada com marcador `?`. Aplicar T1.
-
-### [CRITICAL] Senha exposta na resposta da API (C6) [contract-breaking]
-File: models.py:79-86,95-102
-Description: `get_todos_usuarios` (79-86) e `get_usuario_por_id` (95-102) incluem a chave `senha` com o valor bruto do banco no dicionário devolvido, que é repassado sem filtro por `GET /usuarios` e `GET /usuarios/<id>`.
-Impact: Qualquer cliente que liste ou busque um usuário recebe a senha em texto puro, sem necessidade de acesso ao banco.
-Recommendation: Criar uma representação pública sem o campo `senha`, e usar uma representação separada apenas no caminho de autenticação. Aplicar T18 (equivalente a ISP, ver `solid-principles.md`).
+### [CRITICAL] Senha devolvida na resposta da API (F06, C6) [contract-breaking]
+File: src/models/usuario_model.py:3-9
+Locations: src/models/usuario_model.py:3-9, src/models/usuario_model.py:12-15, src/models/usuario_model.py:18-21
+Description: A tupla `CAMPOS` inclui `senha`, e `_to_dict` devolve todos os campos. Os dois consumidores, `get_all` e `get_by_id`, alimentam `GET /usuarios` e `GET /usuarios/<id>`. O comentário nas linhas 7 e 8 registra que a correção foi recusada no portão da execução anterior.
+Impact: Cliente sem autenticação obtém a senha de qualquer usuário por `GET /usuarios`. Combinado com F01, a senha vem em texto puro e é utilizável de imediato.
+Recommendation: Remover o campo da serialização pública e usar serialização própria onde a credencial for necessária. Aplicar T18.
 Contract change: `GET /usuarios` e `GET /usuarios/<id>` deixam de devolver a chave `senha`. As demais chaves permanecem inalteradas.
 
-### [CRITICAL] Senha comparada e armazenada sem hash (C5) [contract-breaking]
-File: models.py:109-111,126-129
-Description: `login_usuario` (109-111) compara a senha por igualdade direta dentro da própria consulta SQL, e `criar_usuario` (126-129) insere a senha recebida sem qualquer transformação.
-Impact: A senha fica recuperável em texto puro por qualquer leitura da tabela, e a comparação direta impede a adoção de um algoritmo de hash sem alterar o formato de dado já persistido.
-Recommendation: Persistir hash com sal em `criar_usuario` e comparar hash em `login_usuario`. Aplicar T17.
-Contract change: Senhas já persistidas em texto puro precisam de migração para hash; o formato do dado armazenado muda.
+### [HIGH] Política de origem cruzada aberta (F07, H8) [contract-breaking]
+File: src/config/settings.py:8
+Locations: src/config/settings.py:8, src/app.py:16
+Description: `CORS_ORIGINS` tem `*` como valor padrão, e `src/app.py:16` passa a lista a `CORS(app, origins=...)`. Sem variável de ambiente definida, o cabeçalho de resposta libera qualquer origem.
+Impact: Qualquer origem pode emitir requisição contra a API pelo navegador do usuário. Combinado com F02 e F03, uma página de terceiro dispara `POST /admin/reset-db` e `POST /admin/query`.
+Recommendation: Manter a lista configurável com o padrão aberto preserva o comportamento atual e encerra a constatação como MITIGADA, não como CORRIGIDA. Adotar lista restritiva como padrão fecha de fato. Aplicar T19.
+Contract change: Somente se a lista restritiva for autorizada. O cabeçalho `Access-Control-Allow-Origin` deixa de ser `*` para toda resposta dos 19 endpoints.
 
-### [HIGH] Política de origem cruzada aberta (H8)
-File: app.py:9
-Description: `CORS(app)` é chamado sem argumento de origem, liberando qualquer origem para requisições contra a API.
-Impact: Qualquer site pode emitir requisições autenticadas pelo navegador contra os endpoints desta API.
-Recommendation: Restringir `CORS` às origens confiáveis declaradas em configuração. Aplicar T19.
+### [HIGH] Corpo do erro 500 devolve o texto da exceção (F08, C6) [contract-breaking]
+File: src/middlewares/error_handler.py:9-15
+Description: O tratador central termina em `return jsonify({"erro": str(exc)}), 500`. Com o driver de banco, `str(exc)` inclui o comando SQL completo e a lista de colunas da tabela envolvida. O corpo reproduz o que os blocos `try` do código original produziam, confirmado em 6d1ce62, portanto é preservação fiel e não defeito introduzido pela refatoração anterior.
+Impact: Uma falha interna entrega ao cliente anônimo o texto da consulta e o nome das colunas, inclusive `senha`. O detalhe já é registrado por `logger.exception` na linha 14, que é o destino adequado.
+Recommendation: Substituir por mensagem fixa, mantendo o detalhe apenas no registro de log. Aplicar T11.
+Contract change: O corpo de toda resposta 500 deixa de conter o texto da exceção e passa a conter uma mensagem fixa. O código de status não muda.
 
-### [HIGH] Rotas administrativas sem camada de controller ou model (MVC)
-File: app.py:47-78
-Description: `reset_database` e `executar_query` são handlers de rota que chamam `get_db()` e executam SQL diretamente, sem passar por controller nem por model, violando a coluna "não contém" de `views/routes` e do ponto de entrada em `mvc-architecture.md`.
-Impact: Não há ponto único de validação ou de montagem de resposta para essas duas rotas; qualquer alteração de fluxo exige editar o arquivo de composição da aplicação.
-Recommendation: Mover a lógica para um controller e um model de administração dedicados. Aplicar T4, T5.
+### [MEDIUM] Camada de configuração contém esquema e acesso a dados (F09, MVC)
+File: src/config/database.py:26-84
+Description: `init_db` executa quatro comandos `CREATE TABLE`, uma consulta `SELECT COUNT(*)` e dois `INSERT` de carga inicial. A tabela `contém / não contém` atribui a `config/` a leitura de ambiente e constantes nomeadas, e exclui consulta.
+Impact: Alterar o esquema do banco exige editar a camada de configuração. A carga inicial, que é dado de domínio, fica no mesmo arquivo que o caminho do banco, o que é a origem de F01 estar em `config/`.
+Recommendation: Mover a criação de esquema e a carga inicial para a camada de modelo, mantendo em `config/` apenas o caminho do banco e a fábrica de conexão. Aplicar T3.
 
-### [HIGH] Controller acessando o driver do banco diretamente (MVC)
-File: controllers.py:264-292
-Description: `health_check` importa `get_db` de `database` e executa `cursor.execute("SELECT 1")` e três contagens diretamente no controller, violando a coluna "não contém" de `controllers/` em `mvc-architecture.md` (SQL literal, acesso direto ao driver do banco).
-Impact: A lógica de contagem não pode ser reutilizada nem testada fora do contexto HTTP, e duplica no controller uma responsabilidade que pertence ao model.
-Recommendation: Mover as consultas para um model de health/relatório e fazer o controller apenas chamá-lo. Aplicar T4, T5.
+### [MEDIUM] Corpo da requisição lido sem guarda (F10, M3) [contract-breaking]
+File: src/controllers/admin_controller.py:17-18
+Locations: src/controllers/admin_controller.py:17-18, src/controllers/pedido_controller.py:53-54, src/controllers/usuario_controller.py:41-43
+Description: Três handlers leem o corpo e chamam `.get` diretamente, sem a verificação `if not dados` que os outros quatro aplicam. Corpo JSON nulo produz `AttributeError`, e corpo JSON válido que não seja objeto, como `"abc"`, produz o mesmo erro nos sete handlers de escrita, porque `if not dados` aprova qualquer valor verdadeiro.
+Impact: Erro de cliente produz 500 em vez de 400, e o corpo do 500 expõe o texto da exceção por F08. A mesma classe de entrada recebe tratamento diferente conforme o endpoint.
+Recommendation: Verificar em ponto único que o corpo é objeto, e consumir essa verificação nos sete handlers de escrita. Aplicar T20.
+Contract change: `POST /admin/query`, `PUT /pedidos/<id>/status`, `POST /login`, `POST /produtos`, `PUT /produtos/<id>`, `POST /usuarios` e `POST /pedidos` passam a devolver 400 para corpo nulo e para corpo JSON que não seja objeto, hoje respondidos com 500.
 
-### [HIGH] Estado global mutável na conexão de banco (H3 / DIP)
-File: database.py:4,7-12
-Description: A conexão é mantida na variável de módulo `db_connection`, reatribuída dentro de `get_db()` via `global`, com `check_same_thread=False`, e é a única fonte de dados usada por toda a aplicação (importada diretamente por `models.py`).
-Impact: Requisições concorrentes compartilham a mesma conexão. Não é possível trocar a origem dos dados nem testar uma função de acesso a dados sem subir esse estado global.
-Recommendation: Substituir por fábrica de conexão com escopo de requisição, recebida por parâmetro em vez de importada globalmente. Aplicar T6.
+### [MEDIUM] Atualização de status não verifica se o pedido existe (F11, M3) [contract-breaking]
+File: src/controllers/pedido_controller.py:52-66
+Description: `atualizar_status` valida o valor do status e chama `pedido_model.update_status`, que executa `UPDATE pedidos SET status = ? WHERE id = ?` sem verificar o resultado. Um identificador inexistente atualiza zero linhas e o handler devolve 200 com a mensagem de sucesso.
+Impact: O cliente recebe confirmação de uma escrita que não ocorreu. Os demais handlers do projeto verificam a existência antes de escrever, conforme `produto_controller.atualizar` em src/controllers/produto_controller.py:61-63.
+Recommendation: Verificar a existência do pedido antes da escrita, como a rota de produto já faz. Aplicar T20.
+Contract change: `PUT /pedidos/<id>/status` passa a devolver 404 para identificador inexistente, hoje respondido com 200.
 
-### [HIGH] Módulo cobre múltiplos domínios de negócio (SRP)
-File: models.py:4-273
-Description: Um único arquivo de 315 linhas concentra quatro domínios distintos: produto (4-70), usuário e autenticação (72-131), pedido e estoque (133-233) e relatório de vendas (235-273), cada um com sua própria razão para mudar.
-Impact: Uma mudança na regra de desconto do relatório e uma mudança no cadastro de produto exigem editar o mesmo arquivo, aumentando o risco de uma alteração afetar um domínio não relacionado.
-Recommendation: Dividir em `produto_model.py`, `usuario_model.py`, `pedido_model.py` e `relatorio_model.py`. Aplicar T3.
+### [MEDIUM] Bloco de validação duplicado entre criar e atualizar (F12, M2)
+File: src/controllers/produto_controller.py:26-48,65-83
+Description: As verificações de corpo obrigatório, campos obrigatórios, preço não negativo e estoque não negativo aparecem duas vezes no mesmo arquivo, com as mesmas mensagens. A verificação de tamanho de nome e de categoria válida existe apenas em `criar`, nas linhas 45 a 51, e não em `atualizar`.
+Impact: Uma correção na validação precisa ser aplicada nos dois pontos. A divergência já existe: `PUT /produtos/<id>` aceita nome de um caractere e categoria fora da lista, entrada que `POST /produtos` recusa.
+Recommendation: Extrair a sequência de verificações para função única consumida pelos dois handlers. Aplicar T10.
 
-### [HIGH] Escrita em múltiplos passos sem transação (H6)
-File: models.py:133-169
-Description: `criar_pedido` insere o pedido (148-151), depois em laço insere cada item (157-161) e atualiza o estoque (163-166), com um único `commit()` ao final (168) e nenhum `rollback` no caminho de erro.
-Impact: Uma falha após o insert do pedido e antes do commit final deixa o pedido sem itens ou com estoque debitado de forma inconsistente.
-Recommendation: Envolver a sequência em um bloco transacional único com rollback no caminho de exceção. Aplicar T9.
+### [MEDIUM] Validação sem verificação de tipo em produto (F13, M3) [contract-breaking]
+File: src/controllers/produto_controller.py:41-44,80-83,105-108
+Description: `preco < 0` e `estoque < 0` comparam sem verificar o tipo recebido, e `float(preco_min)` converte argumento de consulta sem bloco protegido. Um preço textual produz `TypeError` na comparação, e `?preco_min=abc` produz `ValueError`.
+Impact: `POST /produtos` com `{"nome":"X","preco":"caro","estoque":1}` devolve 500 em vez de 400, e `GET /produtos/busca?preco_min=abc` devolve 500. O corpo do 500 expõe o texto da exceção por F08.
+Recommendation: Verificar o tipo antes de comparar e converter o argumento de consulta dentro de bloco protegido. Aplicar T20.
+Contract change: `POST /produtos`, `PUT /produtos/<id>` e `GET /produtos/busca` passam a devolver 400 para preço, estoque ou faixa de preço de tipo inválido, hoje respondidos com 500.
 
-### [MEDIUM] Tratamento de erro não centralizado (M4)
-File: controllers.py:5,14,24,64,98,111,128,136,146,167,188,222,229,237,257,264
-Description: Os 16 handlers do arquivo repetem o mesmo bloco `try / except Exception as e: return jsonify({"erro": str(e)}), 500`, e `app.py` não registra nenhum tratador de erro central no ponto de entrada.
-Impact: O formato do erro depende de qual handler falhou, e adicionar um novo endpoint exige replicar o mesmo bloco novamente.
-Recommendation: Registrar um tratador de erro central no ponto de entrada e remover o `try/except` repetido de cada handler. Aplicar T11.
+### [LOW] Envelope de resposta inconsistente (F14, L4) [contract-breaking]
+File: src/controllers/home_controller.py:4-16
+Locations: src/controllers/home_controller.py:4-16, src/controllers/produto_controller.py:86,96, src/controllers/relatorio_controller.py:12-25
+Description: Dezesseis endpoints devolvem o envelope `{"dados": ..., "sucesso": true}`. `GET /` e `GET /health` devolvem objeto sem envelope, com chaves próprias. `PUT /produtos/<id>` e `DELETE /produtos/<id>` devolvem `{"sucesso": ..., "mensagem": ...}` sem a chave `dados`.
+Impact: O cliente precisa de tratamento por endpoint em vez de tratamento único para ler o resultado.
+Recommendation: A recomendação padrão é não aplicar. O ganho é de padronização e o custo é a quebra dos consumidores das rotas afetadas. Aplicar T22 apenas se autorizado.
+Contract change: `GET /`, `GET /health`, `PUT /produtos/<id>` e `DELETE /produtos/<id>` passam a devolver o envelope `{"dados": ..., "sucesso": true}`, com o corpo atual movido para dentro da chave `dados`.
 
-### [MEDIUM] Validação de entrada incompleta (M3)
-File: controllers.py:64-96,146-165
-Description: `atualizar_produto` (64-96) não valida tamanho de `nome` nem pertencimento de `categoria` à lista de categorias válidas, embora `criar_produto` valide ambos. `criar_usuario` (146-165) não valida formato de email nem tamanho mínimo de senha.
-Impact: Um produto pode ser atualizado com nome de um caractere ou categoria inexistente, e um usuário pode ser criado com email malformado ou senha vazia de um caractere.
-Recommendation: Aplicar as mesmas verificações de `criar_produto` também em `atualizar_produto`, e validar formato de email e tamanho mínimo de senha em `criar_usuario`. Aplicar T20.
-
-### [MEDIUM] Importação não utilizada (M5)
-File: database.py:2
-Description: O módulo `os` é importado e nunca referenciado no arquivo.
-Impact: Sugere uma dependência de variável de ambiente que não existe, o que confunde a leitura do módulo.
-Recommendation: Remover a importação não utilizada. Aplicar T12.
-
-### [MEDIUM] Importação não utilizada (M5)
-File: models.py:2
-Description: O módulo `sqlite3` é importado e nunca referenciado diretamente no arquivo; todo acesso passa pelo objeto de conexão devolvido por `get_db()`.
-Impact: Sugere uma dependência direta do driver que não existe de fato neste módulo.
-Recommendation: Remover a importação não utilizada. Aplicar T12.
-
-### [MEDIUM] Lógica duplicada (M2)
-File: models.py:12-21,31-40,178-200,211-232,304-313
-Description: A montagem do dicionário de produto (id, nome, descricao, preco, estoque, categoria, ativo, criado_em) é repetida de forma quase idêntica em `get_todos_produtos` (12-21), `get_produto_por_id` (31-40) e `buscar_produtos` (304-313). A montagem de pedido com itens aninhados é repetida quase idêntica em `get_pedidos_usuario` (178-200) e `get_todos_pedidos` (211-232).
-Impact: Uma mudança no formato de saída do produto ou do pedido precisa ser replicada em até três pontos; um ponto esquecido produz resposta divergente entre endpoints.
-Recommendation: Extrair cada montagem para uma função única reaproveitada pelos três (ou dois) pontos de chamada. Aplicar T10.
-
-### [MEDIUM] Consulta dentro de laço (M1)
-File: models.py:140,155,188,192,220,224
-Description: `criar_pedido` consulta o produto uma vez por item dentro do laço de validação (140) e novamente dentro do laço de inserção (155). `get_pedidos_usuario` (188,192) e `get_todos_pedidos` (220,224) abrem um cursor por pedido e outro por item dentro dele.
-Impact: Um relatório com N pedidos e M itens por pedido executa 1 + N + N×M consultas; o tempo de resposta cresce com o volume de dados.
-Recommendation: Substituir por consulta única com JOIN entre pedidos, itens_pedido e produtos, e eliminar a segunda consulta redundante em `criar_pedido`. Aplicar T7.
-
-### [MEDIUM] Cadeia condicional para faixa de desconto (OCP)
-File: models.py:256-262
-Description: `relatorio_vendas` decide a taxa de desconto por uma cadeia `if/elif` sobre o faturamento, com um ramo por faixa.
-Impact: Acrescentar uma nova faixa de desconto exige editar esta função e reordenar as comparações existentes.
-Recommendation: Extrair as faixas para uma lista ordenada de configuração e percorrê-la em vez de comparar em cadeia, preservando os mesmos limites e taxas. Aplicar T13.
-
-### [LOW] Saída em terminal como registro de log (L3)
-File: app.py:56,83-86
-Description: `print("!!! BANCO DE DADOS RESETADO !!!")` (56) e o banner de inicialização (83-86) usam `print` em vez de um registro de log com nível.
-Impact: Não há como filtrar por severidade nem direcionar a saída para um coletor de log em produção.
-Recommendation: Substituir por chamada de log com nível apropriado. Aplicar T23.
-
-### [LOW] Saída em terminal como registro de log (L3)
-File: controllers.py:8,11,57,61,106,161,179,182,208-210,219,248,250
-Description: Catorze chamadas a `print` espalhadas pelos handlers registram operação, erro e simulação de notificação (`ENVIANDO EMAIL`, `ENVIANDO SMS`, `ENVIANDO PUSH`, `NOTIFICAÇÃO`) em vez de log com nível.
-Impact: Não há como filtrar por severidade nem suprimir a saída por configuração em produção.
-Recommendation: Substituir por chamadas de log com nível apropriado (info para operação, error para exceção). Aplicar T23.
-
-### [LOW] Nome sem significado (L2)
-File: controllers.py:14,64,98,136
-Description: Os parâmetros `id` de `buscar_produto`, `atualizar_produto`, `deletar_produto` e `buscar_usuario` sombreiam o built-in `id` da linguagem.
-Impact: Qualquer uso de `id()` embutido dentro dessas funções resolveria para o parâmetro, não para a função embutida.
-Recommendation: Renomear para um nome específico do domínio, como `produto_id` ou `usuario_id`. Aplicar T21.
-
-### [LOW] Formato de resposta inconsistente (L4)
-File: controllers.py:20,142
-Description: O erro 404 de `buscar_produto` (20) inclui a chave `sucesso: False`, enquanto o erro 404 de `buscar_usuario` (142) só devolve `erro`, sem a chave `sucesso`.
-Impact: O cliente precisa tratar o formato de erro de forma diferente para cada endpoint em vez de um único tratamento genérico.
-Recommendation: Padronizar o envelope de erro para incluir sempre `erro` e `sucesso: False`. Aplicar T22.
-
-### [LOW] Número mágico (L1)
-File: controllers.py:47,49
-Description: Os limites `2` e `200` para o tamanho do campo `nome` aparecem como literais na comparação, sem nome.
-Impact: O significado dos limites não é recuperável pela leitura, e a alteração exige localizar a comparação no meio da função.
-Recommendation: Extrair para constantes nomeadas (`NOME_MIN_LENGTH`, `NOME_MAX_LENGTH`), preservando os mesmos valores. Aplicar T13.
-
-### [LOW] Nome sem significado (L2)
-File: models.py:24,54,65,89
-Description: Os parâmetros `id` de `get_produto_por_id`, `atualizar_produto`, `deletar_produto` e `get_usuario_por_id` sombreiam o built-in `id` da linguagem.
-Impact: Qualquer uso de `id()` embutido dentro dessas funções resolveria para o parâmetro, não para a função embutida.
-Recommendation: Renomear para um nome específico do domínio, como `produto_id` ou `usuario_id`. Aplicar T21.
+### [LOW] Literais de ambiente na resposta de saúde (F15, L1)
+File: src/controllers/relatorio_controller.py:17-19
+Description: As chaves `versao`, `ambiente` e `db_path` recebem os literais `1.0.0`, `producao` e `loja.db`, escritos no handler. O caminho do banco já existe como `DB_PATH` em src/config/settings.py:5, e o valor devolvido não acompanha a variável de ambiente.
+Impact: O endpoint informa `loja.db` mesmo quando `DB_PATH` aponta para outro arquivo, e informa `producao` em qualquer ambiente. A informação devolvida não corresponde ao estado da aplicação.
+Recommendation: Extrair para constantes nomeadas no módulo de configuração e derivar o caminho do banco de `DB_PATH`, preservando os valores atuais como padrão. Aplicar T13.
 
 ================================
-Total: 29 findings
+Total: 15 findings
 ================================

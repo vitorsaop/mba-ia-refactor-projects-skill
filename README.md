@@ -9,7 +9,7 @@ está em [ENUNCIADO.md](ENUNCIADO.md).
 
 | Projeto | Stack | Findings | Estrutura antes | Estrutura depois |
 |---|---|---|---|---|
-| code-smells-project | Python + Flask 3.1.1 | 29 | 4 arquivos, 780 linhas | 24 arquivos, 809 linhas |
+| code-smells-project | Python + Flask 3.1.1 | 29 mais 15 da segunda execução | 4 arquivos, 780 linhas | 28 arquivos, 954 linhas |
 | ecommerce-api-legacy | Node.js + Express 4.18.2 | 24 | 3 arquivos, 180 linhas | 22 arquivos, 969 linhas |
 | task-manager-api | Python + Flask 3.0.0 | 53 mais 3 do adendo | 15 arquivos, 1158 linhas | 27 arquivos, 1614 linhas |
 
@@ -284,11 +284,12 @@ passou a localizar o artefato por busca, exigindo exatamente uma ocorrência.
 
 | Projeto | CRITICAL | HIGH | MEDIUM | LOW | Total |
 |---|---|---|---|---|---|
-| code-smells-project | 10 | 6 | 7 | 6 | 29 |
+| code-smells-project, primeira execução | 10 | 6 | 7 | 6 | 29 |
+| code-smells-project, segunda execução | 6 | 2 | 5 | 2 | 15 |
 | ecommerce-api-legacy | 5 | 8 | 7 | 4 | 24 |
 | task-manager-api | 9 | 11 | 20 | 13 | 53 |
 | task-manager-api, adendo da re-auditoria | 0 | 1 | 2 | 0 | 3 |
-| Soma | 24 | 26 | 36 | 23 | 109 |
+| Soma | 30 | 28 | 41 | 25 | 124 |
 
 As três constatações do adendo não foram encontradas na Fase 2. Apareceram na
 passagem B da re-auditoria do passo 3.5, já sobre o código refatorado, e foram
@@ -432,19 +433,33 @@ PUT /users/1               -> 401 (sem credencial)
 O portão da Fase 2 recebeu respostas diferentes em cada projeto, e isso produz
 estados finais diferentes. O registro abaixo descreve o que permanece no código.
 
-**Projeto 1.** As correções marcadas `[contract-breaking]` não foram aplicadas.
-Verificado por execução no estado atual do repositório:
+**Projeto 1.** A primeira execução deixou as correções `[contract-breaking]`
+recusadas no portão, e o código as registrava em comentário. A skill foi
+executada uma segunda vez sobre o estado já refatorado, com o portão respondido
+`a`, e as 15 constatações da nova auditoria foram aplicadas.
+
+Antes da segunda execução, verificado por execução:
 
 ```
 POST /admin/query com {"sql":"SELECT nome, email, senha FROM usuarios LIMIT 2"}
-  -> 200 {"dados":[{"email":"admin@loja.com","nome":"Admin","senha":"admin123"},
-                   {"email":"joao@email.com","nome":"João Silva","senha":"123456"}]}
+  -> 200 {"dados":[{"email":"admin@loja.com","nome":"Admin","senha":"admin123"}, ...]}
 POST /admin/reset-db sem credencial -> 200
+GET /usuarios                       -> chave senha presente, em texto puro
+GET /health                         -> chaves debug e secret_key presentes
 ```
 
-Permanecem no código: execução de SQL arbitrário sem autenticação, remoção de
-dados sem autenticação e senha persistida em texto puro. As correções estruturais
-e as que preservam o contrato foram aplicadas.
+Depois:
+
+```
+POST /admin/query                   -> 404, a rota foi removida
+POST /admin/reset-db sem credencial -> 401, com credencial válida -> 200
+GET /usuarios                       -> criado_em, email, id, nome, tipo
+GET /health                         -> ambiente, counts, database, db_path, status, versao
+banco recriado                      -> pbkdf2_sha256$240000$...
+```
+
+Nenhuma constatação do projeto 1 permanece sem correção. O registro fecha com
+29 linhas, 15 constatações distintas e nenhuma sem destino.
 
 **Projeto 2.** As 24 constatações foram aplicadas, incluindo as 5 que alteram o
 contrato. Os dois endpoints administrativos passaram a exigir credencial, e as

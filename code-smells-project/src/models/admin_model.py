@@ -1,3 +1,8 @@
+"""Operações administrativas.
+
+`executar` foi removida com a rota `POST /admin/query`, F03: a função entregava
+o corpo da requisição a `conn.execute` sem validação.
+"""
 from src.config.database import get_connection
 
 
@@ -8,12 +13,3 @@ def reset():
         conn.execute("DELETE FROM produtos")
         conn.execute("DELETE FROM usuarios")
     return True
-
-
-def executar(query):
-    with get_connection() as conn:
-        cursor = conn.execute(query)
-        if query.strip().upper().startswith("SELECT"):
-            rows = cursor.fetchall()
-            return {"select": True, "dados": [dict(row) for row in rows]}
-        return {"select": False}

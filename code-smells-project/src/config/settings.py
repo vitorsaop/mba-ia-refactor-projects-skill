@@ -5,7 +5,12 @@ import secrets
 DB_PATH = os.getenv("DB_PATH", "loja.db")
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 PORT = int(os.getenv("PORT", "5000"))
-CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")]
+# F07, item [6] do portão: lista restritiva como padrão. Vazia significa
+# nenhuma origem cruzada permitida.
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+
+# F02, categoria C: segredo sem valor padrão. Ausente, a guarda recusa.
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
 
 # Categoria B (T2): segredo sem verificação externa. O projeto não usa
 # session, flash nem assinatura, portanto uma chave distinta por boot não
@@ -25,3 +30,12 @@ STATUS_PEDIDO_VALIDOS = ("pendente", "aprovado", "enviado", "entregue", "cancela
 
 NOME_PRODUTO_MIN_LENGTH = 2
 NOME_PRODUTO_MAX_LENGTH = 200
+
+# F15: valores que a resposta de saúde devolvia como literal no handler.
+VERSAO = os.getenv("VERSAO", "1.0.0")
+AMBIENTE = os.getenv("AMBIENTE", "producao")
+
+# F01: derivação de senha, T17. Biblioteca padrão, nenhuma dependência nova.
+SENHA_ALGORITMO = "sha256"
+SENHA_ITERACOES = 240000
+SENHA_TAMANHO_SAL = 16

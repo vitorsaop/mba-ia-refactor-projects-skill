@@ -1,7 +1,8 @@
 import logging
 
-from flask import jsonify
 from werkzeug.exceptions import HTTPException
+
+from src.controllers import envelope
 
 logger = logging.getLogger(__name__)
 
@@ -12,4 +13,6 @@ def register(app):
         if isinstance(exc, HTTPException):
             return exc
         logger.exception("erro não tratado")
-        return jsonify({"erro": str(exc)}), 500
+        # F08: `str(exc)` devolvia ao cliente o comando SQL e a lista de
+        # colunas da tabela. O detalhe fica no registro de log acima.
+        return envelope.falha("Erro interno", 500)

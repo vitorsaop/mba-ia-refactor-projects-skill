@@ -1,5 +1,7 @@
 from flask import Blueprint
 
+from src.middlewares.admin_guard import require_admin
+
 from src.controllers import (
     produto_controller,
     usuario_controller,
@@ -37,7 +39,10 @@ home_bp = Blueprint("home", __name__)
 home_bp.add_url_rule("/", "index", home_controller.index, methods=["GET"])
 
 admin_bp = Blueprint("admin", __name__)
-admin_bp.add_url_rule("/admin/reset-db", "reset_database", admin_controller.reset_database, methods=["POST"])
-admin_bp.add_url_rule("/admin/query", "executar_query", admin_controller.executar_query, methods=["POST"])
+# F02: operação destrutiva passa a exigir credencial administrativa.
+admin_bp.add_url_rule("/admin/reset-db", "reset_database",
+                      require_admin(admin_controller.reset_database), methods=["POST"])
+# F03: a rota /admin/query foi removida. Ela entregava o corpo da requisição a
+# conn.execute sem validação e sem autenticação.
 
 ALL_BLUEPRINTS = (produto_bp, usuario_bp, pedido_bp, relatorio_bp, home_bp, admin_bp)

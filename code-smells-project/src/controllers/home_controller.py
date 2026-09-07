@@ -1,8 +1,8 @@
-from flask import jsonify
+from src.controllers import envelope
 
 
 def index():
-    return jsonify({
+    return envelope.ok({
         "mensagem": "Bem-vindo à API da Loja",
         "versao": "1.0.0",
         "endpoints": {
@@ -11,6 +11,6 @@ def index():
             "pedidos": "/pedidos",
             "login": "/login",
             "relatorios": "/relatorios/vendas",
-            "health": "/health"
-        }
+            "health": "/health",
+        },
     })

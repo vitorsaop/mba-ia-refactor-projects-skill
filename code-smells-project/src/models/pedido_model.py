@@ -53,6 +53,13 @@ def get_by_usuario(usuario_id):
         return _montar_pedidos(conn, rows)
 
 
+def get_by_id(pedido_id):
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT id FROM pedidos WHERE id = ?", (pedido_id,)
+        ).fetchone()
+
+
 def get_all():
     with get_connection() as conn:
         rows = conn.execute("SELECT * FROM pedidos").fetchall()
