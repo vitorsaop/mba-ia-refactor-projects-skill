@@ -49,9 +49,13 @@ Estas regras valem durante toda a execução, não apenas no passo em que aparec
 12. Concluir a Fase 3 exige re-auditoria sobre o código refatorado. Os itens do
     bloco `## Validação` são resultado de execução, nunca de afirmação.
 13. Toda saída lida pelo usuário é escrita em português claro e objetivo, sem
-    emoji e sem sinal decorativo. Permanecem em inglês apenas a escala de
-    severidade e os identificadores, conforme a seção "Idioma da saída" de
-    `references/remediation-protocol.md`.
+    emoji e sem sinal decorativo. Permanecem em inglês a escala de
+    severidade, os identificadores e os rótulos de estrutura do relatório de
+    auditoria (`Project:`, `## Summary`, `## Findings`, `File:`,
+    `Description:`, `Impact:`, `Recommendation:` e os demais da lista),
+    conforme a seção "Idioma da saída" de
+    `references/remediation-protocol.md`. O conteúdo de cada campo do
+    relatório continua em português.
 
 ## Arquivos de referência
 
@@ -169,10 +173,10 @@ sempre com o substituto oficial nomeado.
 decrescente: CRITICAL, HIGH, MEDIUM, LOW. Dentro da mesma severidade, ordenar
 por caminho de arquivo. Só então numerar de `F01` em diante, na ordem final.
 
-Registrar em `Localizações:` todas as localizações de cada constatação que
+Registrar em `Locations:` todas as localizações de cada constatação que
 alcance mais de um arquivo. É esse campo que impede a correção parcial na Fase
 3. Usar o template de `references/audit-report-template.md` sem alterar a
-estrutura.
+estrutura: rótulos em inglês, conteúdo em português.
 
 Gravar em `reports/audit-<slug>.md`, onde `<slug>` é o nome do diretório raiz do
 projeto, e imprimir o mesmo conteúdo na resposta. Este é o único arquivo que
@@ -181,8 +185,8 @@ pode ser criado antes do portão.
 Uma constatação altera o contrato quando a correção muda chave de resposta,
 remove endpoint, altera texto de resposta, invalida dado já persistido, ou muda
 o estado do banco resultante de uma operação. Ela recebe a marca
-`[altera-contrato]` no título e o campo `Mudança de contrato:`, e permanece
-ordenada pela própria severidade dentro de `## Constatações`. Não criar bloco
+`[contract-breaking]` no título e o campo `Contract change:`, e permanece
+ordenada pela própria severidade dentro de `## Findings`. Não criar bloco
 separado dentro do relatório: a listagem numerada dessas constatações é o bloco
 impresso no passo 2.5, depois do rodapé `Total:` e fora do relatório.
 
@@ -195,7 +199,7 @@ faz uma constatação ser descartada sem que o usuário saiba.
 
 ```
 ================================
-Total: <N> constatações
+Total: <N> findings
 ================================
 
 CORREÇÕES QUE ALTERAM O CONTRATO (autorização em separado)
@@ -273,7 +277,7 @@ depois de aplicar não serve, porque o que se quer impedir é justamente esquece
 de listar.
 
 Em `.refactor-arch/expected.json`: uma entrada por constatação autorizada que
-altere o contrato, traduzida do campo `Mudança de contrato:`.
+altere o contrato, traduzida do campo `Contract change:`.
 
 Conferir as três identidades de reconciliação e as regras permanentes 4 a 8
 antes de aplicar.

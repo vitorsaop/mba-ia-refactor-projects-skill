@@ -646,7 +646,7 @@ Exceção única: divergência causada por correção autorizada no portão da F
 Nesse caso a divergência é declarada em `.refactor-arch/expected.json`, no passo
 3.2, antes de aplicar, e o comparador é chamado com `--expected`. Declarar a
 divergência depois de a validação reprovar, para fazê-la passar, inverte a
-finalidade do arquivo: a declaração é derivada do campo `Mudança de contrato:`
+finalidade do arquivo: a declaração é derivada do campo `Contract change:`
 da constatação autorizada, não do resultado observado.
 
 ## Falhas frequentes
@@ -670,7 +670,7 @@ da constatação autorizada, não do resultado observado.
 | Captura inteira com status `000` e a aplicação sadia | `BASE_URL` usou `localhost`, resolvido para `::1`, com o processo escutando em IPv4 | Usar o literal de loopback, conforme o passo 1.0 |
 | Aplicação sobe, endpoint devolve 404 | Rota não registrada na camada de rotas | Comparar com o inventário da Fase 1 |
 | Aplicação não sobe, arquivo de entrada não encontrado | Ponto de entrada movido | Ver `mvc-architecture.md`, "Preservação do ponto de entrada" |
-| Divergência exatamente onde a correção autorizada agiu | Falta a entrada em `expected.json` | Declarar a mudança a partir do campo `Mudança de contrato:` e repetir o passo 3.4 |
+| Divergência exatamente onde a correção autorizada agiu | Falta a entrada em `expected.json` | Declarar a mudança a partir do campo `Contract change:` e repetir o passo 3.4 |
 | `autorizada e não observada` para uma constatação | A correção foi autorizada no portão e não foi aplicada | Aplicar a correção; não remover a entrada do arquivo |
 | Comparação aprova, mas o registro tem linha sem destino | Reconciliação do passo 3.5 não executada | Executar as três identidades de `remediation-protocol.md` |
 | Stack sem receita neste arquivo | Projeto fora das duas stacks exemplificadas | Preencher os seis parâmetros do procedimento genérico com fatos da Fase 1 |

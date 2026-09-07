@@ -8,7 +8,7 @@
 - T16 a T18 e T22: transformações do grupo 3, que alteram o contrato
 - T19 a T21 e T23: transformações do grupo 2, complementares
 - Tabela de correspondência anti-pattern para transformação
-- Tradução do campo `Mudança de contrato:` para `expected.json`
+- Tradução do campo `Contract change:` para `expected.json`
 
 ## Como usar o playbook
 
@@ -1094,10 +1094,10 @@ Aplicar também ao endpoint de verificação de saúde, removendo as chaves de
 configuração interna.
 
 **Mudança de contrato.** A chave sai do corpo da resposta em todos os endpoints
-que usavam a serialização. Listar cada endpoint afetado no campo `Mudança de
-contrato:` da constatação.
+que usavam a serialização. Listar cada endpoint afetado no campo `Contract
+change:` da constatação.
 
-**Verificação.** As chaves nomeadas em `Mudança de contrato:` estão ausentes do
+**Verificação.** As chaves nomeadas em `Contract change:` estão ausentes do
 corpo em todos os endpoints afetados. Todas as demais chaves, em todos os
 endpoints, permanecem idênticas à linha de base. Cada endpoint afetado tem
 entrada em `expected.json`, e cada entrada foi observada.
@@ -1142,7 +1142,7 @@ origens no ambiente de execução.
 Quando o usuário quiser fechar de fato dentro da refatoração, a alternativa é
 adotar uma lista restritiva como padrão. Isso altera o cabeçalho de resposta
 para origens hoje aceitas, portanto é do grupo 3: precisa constar como
-`[altera-contrato]` já na Fase 2 e ser autorizada no portão.
+`[contract-breaking]` já na Fase 2 e ser autorizada no portão.
 
 A mesma regra vale para qualquer transformação cujo padrão prescrito preserve a
 condição insegura descrita na constatação.
@@ -1201,7 +1201,7 @@ ausente ou incompleta:
 1. Ler o caminho de escrita e determinar se existe entrada hoje aceita e
    persistida que a validação nova passaria a recusar.
 2. Se existir, a constatação já sai do relatório com a marca
-   `[altera-contrato]` e o campo `Mudança de contrato:` descrevendo qual
+   `[contract-breaking]` e o campo `Contract change:` descrevendo qual
    entrada passa de aceita a recusada, e entra na lista do portão.
 3. Se não existir, isto é, se a validação nova só recusa o que já falhava
    adiante, a constatação é do grupo 2 e é aplicada por padrão.
@@ -1211,7 +1211,7 @@ atualização que hoje aceita qualquer valor.
 
 **Verificação.** Entrada válida produz o mesmo corpo e o mesmo código de status.
 Entrada inválida passa a produzir 400 em vez de persistir valor inconsistente.
-Quando a constatação foi autorizada como `[altera-contrato]`, a nova resposta
+Quando a constatação foi autorizada como `[contract-breaking]`, a nova resposta
 400 está declarada em `expected.json`.
 
 ---
@@ -1391,16 +1391,16 @@ o projeto, e a decisão é da Fase 2, nunca da Fase 3:
 
 ---
 
-## Tradução do campo `Mudança de contrato:` para `expected.json`
+## Tradução do campo `Contract change:` para `expected.json`
 
 Toda correção autorizada no portão que altere o contrato precisa de entrada em
 `.refactor-arch/expected.json`, escrita no passo 3.2, antes de editar o código.
-A fonte é o campo `Mudança de contrato:` da constatação. O formato completo está
+A fonte é o campo `Contract change:` da constatação. O formato completo está
 em `remediation-protocol.md`.
 
 Exemplos de tradução:
 
-| Mudança de contrato | Entradas |
+| Conteúdo de `Contract change:` | Entradas |
 |---|---|
 | `GET /health` deixa de devolver `debug` e `secret_key` | duas entradas, `key` igual a `body.debug` e a `body.secret_key`, `kind` `removida` |
 | `GET /usuarios` deixa de devolver `senha` | uma entrada, `key` igual a `body.dados[*].senha`, `kind` `removida` |

@@ -32,7 +32,7 @@ Regras:
 5. Exceção ao item 4: quando o mesmo defeito lógico tem ocorrências satélites
    que só fecham juntas, como um literal de segredo que precisa sair de todos os
    pontos onde aparece, a constatação pode ser única e listar todas as
-   ocorrências no campo `Localizações:`. Seja qual for a escolha, o invariante é
+   ocorrências no campo `Locations:`. Seja qual for a escolha, o invariante é
    o mesmo: o registro de remediação abre uma linha por localização, e nenhuma
    fecha sozinha.
 6. O identificador do catálogo se repete entre constatações e por isso não

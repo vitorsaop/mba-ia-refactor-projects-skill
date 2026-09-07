@@ -32,24 +32,33 @@ código o que o registro afirma.
 
 ## Idioma da saída
 
-Tudo que a pessoa que executa a skill lê é escrito em português: os blocos
-impressos das Fases 1 e 3, o relatório de auditoria, o texto do portão, os
-arquivos de trabalho em `.refactor-arch/` e as mensagens do comparador.
+Todo texto corrido que a pessoa que executa a skill lê é escrito em português:
+os blocos impressos das Fases 1 e 3, o texto do portão, os arquivos de trabalho
+em `.refactor-arch/`, as mensagens do comparador e o conteúdo de cada campo do
+relatório de auditoria.
 
 Escrever em português claro e objetivo. Frases curtas, voz ativa, uma afirmação
 por frase. Descrever consequência verificável em vez de julgamento. Não usar
 emoji, ícone, sinal decorativo nem marcador gráfico em nenhuma saída: o estado
 de um item de validação é escrito como `[OK]` ou `[FALHA]`.
 
-Três categorias permanecem em inglês, porque são chave e não texto corrido:
+Quatro categorias permanecem em inglês, porque são chave e não texto corrido:
 
 | Categoria | Exemplos | Por que |
 |---|---|---|
 | Escala de severidade | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW` | é a escala definida pelo enunciado do desafio e usada como critério de aceite |
+| Rótulos de estrutura do relatório de auditoria | `ARCHITECTURE AUDIT REPORT`, `Project:`, `Stack:`, `Files:`, `## Summary`, `## Findings`, `File:`, `Locations:`, `Description:`, `Impact:`, `Recommendation:`, `Contract change:`, `[contract-breaking]`, `Total: <N> findings` | é o formato de saída fixado pelo enunciado do desafio; a lista completa está em `audit-report-template.md` |
 | Identificadores | `C1`, `H3`, `M5`, `T1`, `T23`, `F01` | são chaves de referência cruzada entre arquivos, não prose |
 | Interface de programa | nomes de arquivo em `.refactor-arch/`, chaves de `expected.json`, a opção `--expected` | são consumidos por script, não lidos como texto |
 
-O conteúdo dentro dessas estruturas continua em português.
+O conteúdo dentro dessas estruturas continua em português. Rótulo em inglês,
+conteúdo em português: um título de constatação, uma descrição, um impacto, uma
+recomendação e uma mudança de contrato são sempre escritos em português, mesmo
+que o rótulo acima deles seja inglês.
+
+A segunda categoria vale apenas para o relatório de auditoria. Os blocos
+impressos das Fases 1 e 3 e o texto do portão mantêm os rótulos em português
+definidos em `SKILL.md`.
 
 ## Identidade da constatação
 
@@ -85,20 +94,20 @@ a constatação resolvida é a forma mais comum de correção parcial.
 O caso observado: uma chave secreta embutida no código foi corrigida no módulo
 de configuração, mas o mesmo literal continuava em um controlador que o
 devolvia na resposta de verificação de saúde. A constatação citava as duas
-localizações no texto da descrição; o campo `Arquivo:` citava só a primeira; a
+localizações no texto da descrição; o campo `File:` citava só a primeira; a
 transformação tratou só a primeira.
 
 Por isso toda constatação declara suas localizações de forma enumerável:
 
 ```
-Arquivo: src/config/settings.py:13
-Localizações: src/config/settings.py:13, src/controllers/health_controller.py:24
+File: src/config/settings.py:13
+Locations: src/config/settings.py:13, src/controllers/health_controller.py:24
 ```
 
-- `Arquivo:` é a localização principal, para leitura humana.
-- `Localizações:` lista todas, inclusive a principal. O campo só é escrito
+- `File:` é a localização principal, para leitura humana.
+- `Locations:` lista todas, inclusive a principal. O campo só é escrito
   quando a constatação alcança mais de um arquivo. Quando há um só arquivo,
-  `Arquivo:` já basta, inclusive na forma `arquivo.py:12,28,45`.
+  `File:` já basta, inclusive na forma `arquivo.py:12,28,45`.
 - O registro de remediação abre uma linha por localização. Uma constatação com
   três localizações fecha somente quando as três fecham.
 - Localização descoberta durante a Fase 3 é acrescentada à constatação
@@ -135,7 +144,7 @@ Regras:
 4. Correções que preservam o contrato não dependem de seleção: entram no
    conjunto autorizado em qualquer resposta diferente de `n`.
 5. **Transformação com mais de uma opção.** Quando a transformação nomeada em
-   `Recomendação:` oferece opções, o playbook declara qual é a recomendada, e o
+   `Recommendation:` oferece opções, o playbook declara qual é a recomendada, e o
    item do portão a nomeia no texto. Um número nu seleciona a opção recomendada;
    as formas `<n>a` e `<n>b` selecionam explicitamente. No máximo duas opções
    por item. Sufixo não reconhecido é resposta ambígua e vai para a mesma
@@ -247,7 +256,7 @@ essa divergência, e a Fase 3 passa a ter um incentivo invertido: não aplicar a
 correção é o caminho que passa na validação.
 
 A declaração fica em `.refactor-arch/expected.json`, escrita no passo 3.2,
-antes de aplicar, a partir do campo `Mudança de contrato:` de cada constatação
+antes de aplicar, a partir do campo `Contract change:` de cada constatação
 autorizada.
 
 ```json

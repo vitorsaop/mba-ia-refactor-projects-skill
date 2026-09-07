@@ -591,8 +591,8 @@ Exige autorização no portão da Fase 2. Aplica-se quando a correção:
 - altera o estado do banco resultante de uma operação;
 - passa a recusar entrada hoje aceita e persistida.
 
-Constatação do grupo 3 recebe a marca `[altera-contrato]` no relatório e o campo
-`Mudança de contrato:`. Ela mantém a própria severidade: o grupo descreve o
+Constatação do grupo 3 recebe a marca `[contract-breaking]` no relatório e o campo
+`Contract change:`. Ela mantém a própria severidade: o grupo descreve o
 efeito da correção, não a gravidade do problema, e uma constatação MEDIUM pode
 alterar o contrato tanto quanto uma CRITICAL. Se não for autorizada, aparece em
 `## Não aplicadas` no bloco da Fase 3.

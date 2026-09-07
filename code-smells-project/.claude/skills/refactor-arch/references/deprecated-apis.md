@@ -45,9 +45,9 @@ Seguir os quatro passos. Não pular o passo 2.
    substituto explícito está incompleta.
 
 **A versão do interpretador ou runtime observado na máquina entra em
-`Descrição:` como evidência, junto do comando usado para obtê-la, e nunca serve
+`Description:` como evidência, junto do comando usado para obtê-la, e nunca serve
 para suprimir a constatação.** Suprimir com base no interpretador local faria o
-mesmo código produzir relatórios opostos em duas máquinas. `Impacto:` registra a
+mesmo código produzir relatórios opostos em duas máquinas. `Impact:` registra a
 condição: a remoção ocorre a partir da versão de depreciação.
 
 Regra de fonte: uma entrada só pertence a estas tabelas se a depreciação estiver
@@ -128,35 +128,27 @@ inadequada, além de estar em fim de vida.
 
 ## Como reportar
 
-A constatação segue o template de `audit-report-template.md`, com rótulos em
-português. Formato do campo `Descrição:` de uma constatação de API obsoleta:
+A constatação segue o template de `audit-report-template.md`: rótulo em
+inglês, conteúdo em português. Formato do campo `Description:` de uma
+constatação de API obsoleta:
 
 ```
-Descrição: <símbolo> está <depreciado desde <versão> | em situação legada>
-           conforme a documentação oficial de <fornecedor>. O projeto declara
-           <dependência>==<versão>. Ocorre <N> vezes neste arquivo.
-Recomendação: Substituir por <substituto oficial>. Aplicar T14.
+Description: <símbolo> está <depreciado desde <versão> | em situação legada> conforme a documentação oficial de <fornecedor>. O projeto declara <dependência>==<versão>. Ocorre <N> vezes neste arquivo.
+Recommendation: Substituir por <substituto oficial>. Aplicar T14.
 ```
 
 Exemplo preenchido:
 
 ```
 ### [MEDIUM] API obsoleta: datetime.utcnow() (F14, M6)
-Arquivo: models/task.py:15-16
-Descrição: datetime.utcnow() está depreciado desde Python 3.12 conforme a
-           documentação oficial da biblioteca padrão. Ocorre 2 vezes neste
-           arquivo, como valor padrão de coluna.
-Impacto: A remoção em versão futura quebra a criação de registros. O valor
-         devolvido é ingênuo, o que já hoje impede comparação com valor com
-         fuso.
-Recomendação: Substituir por datetime.now(timezone.utc). Se as colunas
-              persistem valores sem fuso, usar
-              datetime.now(timezone.utc).replace(tzinfo=None) para preservar o
-              comportamento atual. Aplicar T14.
+File: models/task.py:15-16
+Description: `datetime.utcnow()` está depreciado desde Python 3.12 conforme a documentação oficial da biblioteca padrão. Ocorre 2 vezes neste arquivo, como valor padrão de coluna.
+Impact: A remoção em versão futura quebra a criação de registros. O valor devolvido é ingênuo, o que já hoje impede comparação com valor com fuso.
+Recommendation: Substituir por `datetime.now(timezone.utc)`. Se as colunas persistem valores sem fuso, usar `datetime.now(timezone.utc).replace(tzinfo=None)` para preservar o comportamento atual. Aplicar T14.
 ```
 
 O símbolo obsoleto costuma aparecer em mais de um arquivo. Nesse caso a
-constatação recebe o campo `Localizações:` com todos eles, e o registro de
+constatação recebe o campo `Locations:` com todos eles, e o registro de
 remediação abre uma linha por localização. Substituir o símbolo em um arquivo e
 deixá-lo em outro é correção parcial, e a re-auditoria do passo 3.5 a detecta.
 
