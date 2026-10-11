@@ -166,16 +166,16 @@ Recommendation: Remover a importação e, ao aplicar F26 e F36, passar a usar os
 ### [MEDIUM] API obsoleta: datetime.utcnow() (F25, M6)
 File: models/task.py:15,16,52
 Locations: models/category.py:11, models/task.py:15,16,52, models/user.py:14, routes/report_routes.py:35,42,45,71,133, routes/task_routes.py:31,72,215,285, routes/user_routes.py:172, seed.py:66,67,69,70,74, services/notification_service.py:35, utils/helpers.py:38
-Description: `datetime.utcnow()` está depreciado desde Python 3.12 conforme a documentação oficial da biblioteca padrão. Ocorre 24 vezes em 8 arquivos, incluindo os valores padrão das colunas `created_at` e `updated_at` dos três modelos. O projeto não declara versão de Python em `requires-python`, `python_requires` nem arquivo de versão, portanto a constatação não é suprimida. O interpretador observado nesta máquina é Python 3.9.6, obtido com `python3 --version`, e esse dado não suprime a constatação.
+Description: `datetime.utcnow()` está depreciado desde Python 3.12 conforme a documentação oficial da biblioteca padrão. Ocorre 23 vezes em 9 arquivos, incluindo os valores padrão das colunas `created_at` e `updated_at` dos três modelos. O projeto não declara versão de Python em `requires-python`, `python_requires` nem arquivo de versão, portanto a constatação não é suprimida. O interpretador observado nesta máquina é Python 3.9.6, obtido com `python3 --version`, e esse dado não suprime a constatação.
 Impact: A remoção em versão futura quebra a criação de registros nos três modelos. O valor devolvido é ingênuo, sem fuso, o que já hoje impede comparação com valor com fuso e levantaria `TypeError`.
 Recommendation: Substituir por `datetime.now(timezone.utc).replace(tzinfo=None)`, que preserva exatamente o valor sem fuso que as colunas persistem, encapsulado em uma função nomeada usada como padrão de coluna. Aplicar T14.
 
-### [MEDIUM] Cálculo de atraso duplicado em cinco pontos (F26, M2)
+### [MEDIUM] Cálculo de atraso duplicado em seis pontos (F26, M2)
 File: models/task.py:50-60
 Locations: models/task.py:50-60, routes/report_routes.py:33-37,132-135, routes/task_routes.py:30-39,71-80,283-287, routes/user_routes.py:171-180
-Description: `Task.is_overdue()` implementa a regra de atraso em models/task.py:50-60 e não é chamado em nenhum arquivo do projeto. O mesmo aninhamento de três condições aparece escrito por extenso em cinco handlers, em três arquivos.
-Impact: Uma correção na regra de atraso precisa ser aplicada em seis pontos. Um ponto esquecido produz valor de `overdue` divergente entre `GET /tasks`, `GET /tasks/<id>`, `GET /tasks/stats`, `GET /users/<id>/tasks` e `GET /reports/summary`.
-Recommendation: Reusar `Task.is_overdue()` nos cinco pontos e chamá-lo dentro de `Task.to_dict()`. Aplicar T10.
+Description: `Task.is_overdue()` implementa a regra de atraso em models/task.py:50-60 e não é chamado em nenhum arquivo do projeto. O mesmo aninhamento de três condições aparece escrito por extenso em seis handlers, em três arquivos.
+Impact: Uma correção na regra de atraso precisa ser aplicada em seis pontos. Um ponto esquecido produz valor de `overdue` divergente entre `GET /tasks`, `GET /tasks/<id>`, `GET /tasks/stats`, `GET /users/<id>/tasks`, `GET /reports/summary` e `GET /reports/user/<id>`.
+Recommendation: Reusar `Task.is_overdue()` nos seis pontos e chamá-lo dentro de `Task.to_dict()`. Aplicar T10.
 
 ### [MEDIUM] Importações não utilizadas nos handlers de relatório (F27, M5)
 File: routes/report_routes.py:7-8
@@ -218,7 +218,7 @@ Recommendation: Remover a linha inteira. Aplicar T12.
 ### [MEDIUM] API obsoleta: Model.query e Query.get (F33, M6)
 File: routes/task_routes.py:14,42,51,67,117,122,158,188,195,227,247,275-281
 Locations: routes/report_routes.py:15-56,105,109,159,163,192,213, routes/task_routes.py:14,42,51,67,117,122,158,188,195,227,247,275-281, routes/user_routes.py:12,29,35,67,94,109,136,140,155,159,197, seed.py:11-13,94-96
-Description: `Model.query` é interface legada em Flask-SQLAlchemy 3.1 e `Query.get(pk)` é legado desde SQLAlchemy 2.0, conforme a documentação oficial dos dois projetos. O projeto declara `flask-sqlalchemy==3.1.1` em requirements.txt. Ocorrem 66 usos de `Model.query` em 4 arquivos, dos quais 13 são `Query.get`.
+Description: `Model.query` é interface legada em Flask-SQLAlchemy 3.1 e `Query.get(pk)` é legado desde SQLAlchemy 2.0, conforme a documentação oficial dos dois projetos. O projeto declara `flask-sqlalchemy==3.1.1` em requirements.txt. Ocorrem 57 usos de `Model.query` em 4 arquivos, dos quais 16 são `Query.get`.
 Impact: A remoção em versão futura quebra todos os 22 endpoints e o script de carga inicial. `Query.get` já emite aviso de depreciação legada em SQLAlchemy 2.0.
 Recommendation: Substituir `Model.query.get(pk)` por `db.session.get(Model, pk)`, `Model.query.all()` por `db.session.execute(db.select(Model)).scalars().all()`, `Model.query.filter_by(...)` por `db.select(Model).where(...)` e `Model.query.count()` pela contagem por `db.func.count()`. Aplicar T14.
 

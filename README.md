@@ -45,7 +45,9 @@ política de desconto e no esquema do banco.
 
 Classificação: 10 CRITICAL, 6 HIGH, 7 MEDIUM, 6 LOW.
 
-Os problemas de maior severidade, com o motivo de cada um ser relevante:
+Problemas por severidade, com o motivo de cada um ser relevante (escala do
+enunciado: MEDIUM cobre duplicação, desempenho moderado e validação ausente; LOW
+cobre legibilidade, nomes e números soltos):
 
 | Severidade | Problema | Consequência verificável |
 |---|---|---|
@@ -59,6 +61,10 @@ Os problemas de maior severidade, com o motivo de cada um ser relevante:
 | CRITICAL | Modo de depuração ligado com bind em `0.0.0.0` | Console interativo do Werkzeug acessível pela rede |
 | HIGH | Escrita de pedido em vários passos sem transação | Falha no meio deixa pedido sem itens ou estoque debitado sem pedido |
 | HIGH | Origem cruzada liberada para qualquer origem | Página de terceiro emite requisição autenticada pelo navegador |
+| MEDIUM | Consulta ao banco dentro de laço (padrão N+1) em `get_pedidos_usuario` e `get_todos_pedidos` (`models.py:171-233`) | Com N pedidos de M itens cada, a listagem executa 1 + N + N×M consultas; o tempo de resposta cresce com o volume |
+| MEDIUM | `atualizar_produto` valida menos que `criar_produto`, e `criar_usuario` não valida e-mail nem tamanho da senha (`controllers.py:64-96,146-165`) | `PUT /produtos/<id>` aceita nome de 1 caractere e categoria inexistente, que `POST /produtos` recusa com 400; `POST /usuarios` aceita e-mail sem formato e senha de 1 caractere |
+| LOW | Parâmetro `id` esconde a função embutida `id` em 8 funções (`controllers.py:14,64,98,136`; `models.py:24,54,65,89`) | A função embutida fica inacessível nessas funções, e o nome não diz qual entidade identifica |
+| LOW | Limites 2 e 200 do nome do produto escritos como número solto (`controllers.py:47,49`) | O significado só aparece lendo a comparação; mudar a regra exige achar o número no meio da função |
 
 ### Projeto 2: ecommerce-api-legacy
 
@@ -89,6 +95,10 @@ Classificação: 5 CRITICAL, 8 HIGH, 7 MEDIUM, 4 LOW.
 | HIGH | Checkout escreve em quatro tabelas sem transação | Falha no meio deixa matrícula sem pagamento |
 | HIGH | Remoção de usuário deixa matrículas e pagamentos órfãos | Registros apontam para identificador inexistente |
 | HIGH | Cache global sem limite nem expiração | Cresce enquanto o processo viver |
+| MEDIUM | Consultas dentro de laço no relatório financeiro (`AppManager.js:83-127`) | Com C cursos e M matrículas, executa 1 + C + 2×M consultas; a carga inicial (2 cursos, 1 matrícula) já gera 5 |
+| MEDIUM | Tratamento de erro repetido em cada callback, sem tratador central (`AppManager.js:38,41,51,55,70,84`; `app.js` não registra tratador) | Seis pontos de erro devolvem cinco textos diferentes em texto puro, sem formato comum; todo endpoint novo precisa copiar o tratamento |
+| LOW | Variáveis abreviadas sem significado: `u`, `e`, `p`, `cid`, `cc`, `c`, `enr`, `self` (`AppManager.js:26,29-33,89,102`) | O significado é reconstruído a cada leitura; `e` quer dizer e-mail enquanto o erro se chama `err` no mesmo escopo |
+| LOW | Valores soltos: prefixo de cartão `"4"`, rótulos `"PAID"` e `"DENIED"`, senha padrão `"123456"` (`AppManager.js:46,68`) e 10000, 2 e 10 no cálculo de senha (`utils.js:19,20,22`) | O significado não é recuperável pela leitura; `"PAID"` também aparece na carga inicial (linha 21) sem ligação com a regra da linha 46 |
 
 ### Projeto 3: task-manager-api
 
@@ -107,7 +117,7 @@ diretamente e chamavam persistência dentro do handler, sem camada intermediári
 exercitar a regra de notificação sem abrir conexão real.
 
 **Falta de coesão.** `report_routes.py` cobria dois domínios, relatórios e
-categorias. A regra de atraso estava escrita por extenso em cinco handlers, em
+categorias. A regra de atraso estava escrita por extenso em seis handlers, em
 três arquivos, enquanto `Task.is_overdue()` implementava exatamente a mesma
 regra e não era chamado em lugar nenhum. `utils/helpers.py` definia sete
 constantes com os valores que os handlers repetiam como literal, e nenhuma era
@@ -125,7 +135,11 @@ Classificação: 9 CRITICAL, 11 HIGH, 20 MEDIUM, 13 LOW.
 | CRITICAL | `debug=True` com bind em `0.0.0.0` | Console interativo do Werkzeug acessível pela rede |
 | HIGH | Origem cruzada liberada para qualquer origem | Combinada com os `DELETE` abertos, permite remoção disparada por página de terceiro |
 | HIGH | Onze blocos `except` sem tipo ou sem registro da causa | Diagnóstico em produção limitado ao código de status |
-| MEDIUM | 24 usos de `datetime.utcnow()` e 66 de `Model.query` | Símbolos depreciados e legados nas versões declaradas |
+| MEDIUM | 23 usos de `datetime.utcnow()` e 57 de `Model.query` | Símbolos depreciados e legados nas versões declaradas |
+| MEDIUM | Consulta ao banco dentro de laço (padrão N+1) na listagem de tarefas (`routes/task_routes.py:41-57`) | `GET /tasks` executa 1 consulta de tarefas e até 2 por tarefa (usuário e categoria); os relacionamentos `Task.user` e `Task.category` existem e não são usados |
+| MEDIUM | Regra de atraso copiada em 6 handlers de 3 arquivos (`task_routes.py:30-39,71-80,283-287`; `report_routes.py:33-37,132-135`; `user_routes.py:171-180`) | Mudar a regra exige editar 6 pontos, e um esquecido faz `overdue` divergir entre as listagens e os relatórios; `Task.is_overdue()` tem a mesma regra e nunca é chamado |
+| LOW | Variáveis `p1` a `p5` nas contagens por prioridade (`report_routes.py:24-28`) | A ligação entre número e nome de negócio (`critical`, `high`, `medium`, `low`, `minimal`) só aparece 60 linhas depois, nas linhas 84-88 |
+| LOW | Limites do título (3 e 200) e da prioridade (1 e 5) como número solto (`task_routes.py:96,99,113,167,169,182`); `MIN_TITLE_LENGTH` e `MAX_TITLE_LENGTH` já existem em `utils/helpers.py:112-113` e ninguém as importa | Mudar o tamanho máximo do título exige achar 4 ocorrências em 2 handlers, enquanto as constantes existentes ficam sem uso |
 
 ---
 
@@ -350,7 +364,7 @@ routes/  (3 arquivos)        src/models/               user, category, task, rep
 services/notification_...    src/controllers/          task, user, category, report, health, validators, envelope
 utils/helpers.py             src/views/routes.py       22 rotas
                              src/middlewares/          error_handler, admin_guard
-15 arquivos, 1158 linhas     27 arquivos, 1597 linhas
+15 arquivos, 1158 linhas     27 arquivos, 1614 linhas
 ```
 
 Os diretórios `models/`, `routes/`, `services/` e `utils/` do projeto 3 não foram
@@ -376,7 +390,7 @@ tabela `contém / não contém` e movido para a camada correspondente.
 | Cada finding tem arquivo e linhas exatos | Sim | Sim | Sim |
 | Findings ordenados por severidade | Sim | Sim | Sim |
 | Mínimo de 5 findings | 29 | 24 | 53 |
-| Detecção de APIs deprecated incluída | Sem ocorrência no relatório | Sem ocorrência no relatório | 24 usos de `datetime.utcnow`, 66 de `Model.query` |
+| Detecção de APIs deprecated incluída | Sem ocorrência no relatório | Sem ocorrência no relatório | 23 usos de `datetime.utcnow`, 57 de `Model.query` |
 | Skill pausa e pede confirmação | Sim | Sim | Sim |
 
 **Fase 3, refatoração**
